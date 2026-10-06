@@ -30,6 +30,12 @@ class AlarmService : Service(), TextToSpeech.OnInitListener {
     override fun onBind(i: Intent?): IBinder? = null
 
     override fun onStartCommand(i: Intent?, f: Int, id: Int): Int {
+        // التعامل مع إجراء DISMISS من التنبيه
+        if (i?.action == "DISMISS") {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         text = i?.getStringExtra("t") ?: "حان وقت الحصة"
         val nm = getSystemService(NotificationManager::class.java)
 
@@ -105,13 +111,4 @@ class AlarmService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() { tts?.shutdown(); super.onDestroy() }
-
-    // معالج الإجراء DISMISS من التنبيه
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val action = intent?.action
-        if (action == "DISMISS") {
-            stopSelf()
-        }
-        return super.onStartCommand(intent, flags, startId)
-    }
 }
