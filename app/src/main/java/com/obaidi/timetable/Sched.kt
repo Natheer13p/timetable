@@ -2,74 +2,88 @@ package com.obaidi.timetable
 
 import android.app.AlarmManager
 import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import org.json.JSONArray
 import java.util.Calendar
 
 object Sched {
-    private const val MINUTES_BEFORE = 5 // التنبيه قبل الحصة بدقائق
-
-    fun pi(c: Context, id: Int, flags: Int): PendingIntent? =
-        PendingIntent.getBroadcast(c, id, Intent(c, AlarmReceiver::class.java), flags or PendingIntent.FLAG_IMMUTABLE)
+    private const val WINDOW_START = 7 * 60 + 40   // 7:40 صباحاً
+    private const val WINDOW_END = 13 * 60 + 30    // 1:30 ظهراً
+    private const val DAYS_AHEAD = 30
+    private const val ACTION = "com.obaidi.timetable.ALARM"
 
     fun all(c: Context, json: String) {
-        c.getSharedPreferences("p", 0).edit().putString("j", json).apply()
-        val am = c.getSystemService(AlarmManager::class.java)
-        for (i in 0 until 60) pi(c, i, PendingIntent.FLAG_NO_CREATE)?.let { am.cancel(it) }
-        val a = JSONArray(json)
-        for (i in 0 until a.length()) {
-            val o = a.getJSONObject(i)
-            set(c, o.getInt("d"), o.getInt("c"), o.getInt("m"), o.getString("t"))
+        val sp = c.getSharedPreferences("p", 0)
+        sp.edit().putString("j", json).putLong("lastSched", System.currentTimeMillis()).apply()
+        cancelAll(c)
+
+        val a = try { JSONArray(json) } catch (e: Exception) { JSONArray() }
+        if (a.length() == 0) return
+
+        val today = Calendar.getInstance()
+        for (offset in 0 until DAYS_AHEAD) {
+            val day = (today.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, offset) }
+            val dIdx = day.get(Calendar.DAY_OF_WEEK) - Calendar.SUNDAY
+            if (dIdx !in 0..4) continue
+            for (i in 0 until a.length()) {
+                val o = a.optJSONObject(i) ?: continue
+                if (o.optInt("d", -1) != dIdx) continue
+                val at = o.optInt("at", -1)
+                val text = o.optString("text", "")
+                val kind = o.optString("kind", "start")
+                if (at < WINDOW_START || at > WINDOW_END || text.isEmpty()) continue
+                val code = (dIdx + 1) * 100000 + offset * 1000 + i
+                setAt(c, day, at, code, kind, text)
+            }
         }
     }
 
-    fun set(c: Context, d: Int, l: Int, m: Int, t: String) {
-        // وقت الحصة بالدقيقتين
-        val cal = Calendar.getInstance().apply {
-            set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY + d)
-            set(Calendar.HOUR_OF_DAY, m / 60); set(Calendar.MINUTE, m % 60)
-            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    private fun setAt(c: Context, day: Calendar, minutes: Int, code: Int, kind: String, text: String) {
+        val at = (day.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, minutes / 60)
+            set(Calendar.MINUTE, minutes % 60)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
         }
-        if (cal.timeInMillis <= System.currentTimeMillis() + 1000) cal.add(Calendar.DAY_OF_YEAR, 7)
+        if (at.timeInMillis <= System.currentTimeMillis() + 2000) return
 
-        // ID فريد لكل حصة (بما أننا نضبط ضابطين)
-        val baseId = d * 10 + l
+        val am = c.getSystemService(AlarmManager::class.java) ?: return
+        val pi = PendingIntent.getBroadcast(
+            c, code,
+            Intent(c, AlarmReceiver::class.java).apply {
+                action = ACTION
+                putExtra("t", text)
+                putExtra("k", kind)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        try {
+            am.setAlarmClock(AlarmManager.AlarmClockInfo(at.timeInMillis, pi), pi)
+            remember(c, code)
+        } catch (_: Exception) {}
+    }
 
-        // ضابط 1: وقت الحصة exactly
-        val cal1 = cal.clone().apply {
-            // لا تغيير، الساعة بالضبط
-        }
-        val i1 = Intent(c, AlarmReceiver::class.java).apply {
-            action = "EXACT"
-            putExtra("d", d).putExtra("l", l).putExtra("m", m).putExtra("t", t)
-        }
-        val p1 = PendingIntent.getBroadcast(c, baseId * 2, i1, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    private fun remember(c: Context, code: Int) {
+        val sp = c.getSharedPreferences("p", 0)
+        val set = sp.getStringSet("codes", mutableSetOf())!!.toMutableSet()
+        set.add(code.toString())
+        sp.edit().putStringSet("codes", set).apply()
+    }
 
-        // ضابط 2: قبل الحصة بـ MINUTES_BEFORE دقيقة
-        val cal2 = Calendar.getInstance().apply {
-            set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY + d)
-            // نطرح الدقائق
-            val currentMinutes = cal[Calendar.MINUTE]
-            val newMinutes = currentMinutes - MINUTES_BEFORE
-            if (newMinutes < 0) {
-                cal2.add(Calendar.HOUR_OF_DAY, -1)
-                cal2.add(Calendar.MINUTE, 60 + newMinutes)
-            } else {
-                cal2.add(Calendar.MINUTE, newMinutes)
-            }
-            cal2[Calendar.SECOND] = 0; cal2[Calendar.MILLISECOND] = 0
+    fun cancelAll(c: Context) {
+        val sp = c.getSharedPreferences("p", 0)
+        val am = c.getSystemService(AlarmManager::class.java) ?: return
+        for (s in sp.getStringSet("codes", emptySet())!!) {
+            val id = s.toIntOrNull() ?: continue
+            val pi = PendingIntent.getBroadcast(
+                c, id,
+                Intent(c, AlarmReceiver::class.java).apply { action = ACTION },
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            ) ?: continue
+            try { am.cancel(pi) } catch (_: Exception) {}
+            pi.cancel()
         }
-        val i2 = Intent(c, AlarmReceiver::class.java).apply {
-            action = "BEFORE"
-            putExtra("d", d).putExtra("l", l).putExtra("m", m).putExtra("t", t)
-        }
-        val p2 = PendingIntent.getBroadcast(c, baseId*2 + 1, i2, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-
-        // جدولة الضابطين
-        val am = c.getSystemService(AlarmManager::class.java)
-        am.setAlarmClock(AlarmManager.AlarmClockInfo(cal.timeInMillis, p1), p1)
-        am.setAlarmClock(AlarmManager.AlarmClockInfo(cal2.timeInMillis, p2), p2)
+        sp.edit().remove("codes").apply()
     }
 }

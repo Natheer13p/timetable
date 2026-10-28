@@ -1,8 +1,30 @@
 plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
+
+/* مفتاح التوقيع يبقى محلياً ولا يُرفع للمستودع */
+def ks = file('../keystore/release.jks')
+
 android {
     namespace 'com.obaidi.timetable'
     compileSdk 34
-    defaultConfig { applicationId 'com.obaidi.timetable'; minSdk 26; targetSdk 34; versionCode 1; versionName '1.0' }
+    defaultConfig { applicationId 'com.obaidi.timetable'; minSdk 26; targetSdk 34; versionCode 4; versionName '3.1' }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = '17' }
+
+    signingConfigs {
+        release {
+            if (ks.exists()) {
+                storeFile ks
+                storePassword 'ObaidiTimetable2026Key'
+                keyAlias 'obaidi'
+                keyPassword 'ObaidiTimetable2026Key'
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (ks.exists()) signingConfig signingConfigs.release
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
 }
