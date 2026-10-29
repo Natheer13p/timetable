@@ -1204,7 +1204,10 @@ function openUpdate(){
 }
 
 function checkUpdates(manual){
-  if(!window.Native){ toast("التحديث متاح داخل التطبيق فقط"); return; }
+  if(!window.Native){
+    if(manual) toast("تحديث التطبيق متاح على أندرويد — نسخة الويب تتحدث تلقائياً");
+    return;
+  }
   var b = baseUrl();
   if(!b){ if(manual) toast("رابط التحديث غير مضبوط في هذه النسخة"); return; }
   if(manual){ toast("جاري فحص التحديث..."); updateSettingsInfo(); }
@@ -1229,11 +1232,35 @@ window.onVersionJson = function(ok, body){
 };
 
 function checkDataUpdates(manual){
-  if(!window.Native){ if(manual) toast("التحديث متاح داخل التطبيق فقط"); return; }
   var b = baseUrl();
   if(!b){ if(manual) toast("رابط التحديث غير مضبوط في هذه النسخة"); return; }
   if(manual) toast("جاري فحص بيانات المدرسة...");
-  Native.httpGet(b + "/school-version.json?t=" + Date.now(), "onSchoolVerJson");
+  if(window.Native){
+    Native.httpGet(b + "/school-version.json?t=" + Date.now(), "onSchoolVerJson");
+    return;
+  }
+  /* نسخة الويب */
+  fetch(b + "/school-version.json?t=" + Date.now()).then(function(r){
+    if(!r.ok) throw new Error("net");
+    return r.json();
+  }).then(function(j){
+    if((j.version|0) > (meta.schoolVer || 0)){
+      _pendingSchoolVer = j.version | 0;
+      var u = j.url || (b + "/school.xml");
+      return fetch(u).then(function(r){
+        if(!r.ok) throw new Error("net");
+        return r.arrayBuffer();
+      }).then(function(buf){
+        _schoolSilent = false;
+        window.onSchoolBegin();
+        window.onSchoolPart(bytesToB64(new Uint8Array(buf)));
+        window.onSchoolEnd();
+      });
+    }
+    if(manual) toast("بيانات المدرسة محدّثة ✓");
+  }).catch(function(){
+    if(manual) toast("تعذر تحديث بيانات المدرسة");
+  });
 }
 window.onSchoolVerJson = function(ok, body){
   if(!ok){ return; }
@@ -1494,10 +1521,35 @@ function obOther(){
 }
 function loadEmbedded(cb){
   if(teachers.list && teachers.list.length){ cb(true); return; }
-  if(!window.Native){ cb(false); return; }
-  _afterSchool = cb;
-  _schoolSilent = true;
-  try{ Native.embeddedSchool(); }catch(e){ _afterSchool = null; _schoolSilent = false; cb(false); }
+  if(window.Native){
+    _afterSchool = cb;
+    _schoolSilent = true;
+    try{ Native.embeddedSchool(); }catch(e){ _afterSchool = null; _schoolSilent = false; cb(false); }
+    return;
+  }
+  /* نسخة الويب: نجلب قاعدة المدرسة من الموقع نفسه */
+  toast("جاري تحميل بيانات المدرسة...");
+  fetch("school.xml?t=" + Date.now()).then(function(r){
+    if(!r.ok) throw new Error("net");
+    return r.arrayBuffer();
+  }).then(function(buf){
+    _schoolSilent = true;
+    _afterSchool = cb;
+    window.onSchoolBegin();
+    window.onSchoolPart(bytesToB64(new Uint8Array(buf)));
+    window.onSchoolEnd();
+  }).catch(function(){
+    _schoolSilent = false;
+    _afterSchool = null;
+    cb(false);
+  });
+}
+function bytesToB64(bytes){
+  var bin = "", CH = 0x8000;
+  for(var i=0;i<bytes.length;i+=CH){
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i+CH, bytes.length)));
+  }
+  return btoa(bin);
 }
 function showRoleStep(){
   var n = teachers.list.length;
@@ -1637,13 +1689,10 @@ setTimeout(refreshStatus, 700);
 </script>
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <script>
-/* ===== PWA + إشعارات الويب (OneSignal) ===== */
-var ONESIGNAL_APP_ID = ""; /* ضع معرّف التطبيق من OneSignal هنا */
-
+var ONESIGNAL_APP_ID = "";
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(function(){});
 }
-
 window.addEventListener("load", function(){
   if(!ONESIGNAL_APP_ID || !window.OneSignalDeferred) return;
   window.OneSignalDeferred.push(function(OneSignal){
