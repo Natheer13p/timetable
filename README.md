@@ -1,84 +1,54 @@
-# 📦 ملفات الرفع إلى GitHub
+# جدول الحصص — اعدادية العبيدي للبنين
 
-هذه الملفات هي التي تُرفع إلى **جذر المستودع** `Natheer13p/timetable` (فرع `main`).
+تطبيق أندرويد (Kotlin + WebView) + نسخة ويب/PWA لأجهزة iPhone.
 
-## 1) ارفع هذه الملفات إلى جذر المستودع
+## الروابط المباشرة
 
-```
-index.html
-manifest.webmanifest
-sw.js
-icon-192.png
-icon-512.png
-apple-touch-icon.png
-school.xml
-school-version.json
-version.json
-apk/Timetable.apk
-```
+| الشي | الرابط |
+|---|---|
+| 🌐 نسخة الويب (iPhone / كمبيوتر) | https://natheer13p.github.io/timetable/ |
+| 📱 تحميل APK | https://github.com/Natheer13p/timetable/raw/main/apk/Timetable.apk |
+| 🔄 ملف تحديث التطبيق | https://raw.githubusercontent.com/Natheer13p/timetable/main/version.json |
+| 🗂 تحديث بيانات المدرسة | https://raw.githubusercontent.com/Natheer13p/timetable/main/school-version.json |
 
-> الطريقة الأسهل: افتح المستودع على GitHub → **Add file → Upload files** → اسحب الملفات → Commit.
-> أنشئ مجلد `apk` أولاً ثم ارفع داخله `Timetable.apk`.
+التطبيق يقرأ روابط التحديث هذه تلقائياً — **الرابط ثابت مدمج داخل الكود**، لا يعدّله المستخدم.
 
-## 2) فعّل صفحة الويب (GitHub Pages)
+## الأدوار
 
-المستودع حالياً **بدون Pages**. فعّلها مرة واحدة:
+| الدور | يختاره | التنبيهات |
+|---|---|---|
+| 👨‍🏫 مدرّس | اسمه من قائمة المدرسة → يُثبَّت دائماً | اعتيادي: تنبيه قبل 5 دقائق + البداية. امتحاني: بداية + نهاية |
+| 🧑‍💼 مراقب | مرة واحدة → يُثبَّت | بداية ونهاية كل فترة، بدون أسماء صفوف/مواد، مع مفتاح اعتيادي/امتحاني |
+| 📋 جدول شخصي | أي مدرسة أخرى | يكتب حصصه وأوقاته بنفسه |
 
-`Settings → Pages → Source: Deploy from a branch → Branch: main → Folder: / (root) → Save`
+الأوقات ثابتة لمدرستنا (تُعرض فقط) ويعدّل المستخدم وقت التنبيه فقط. المستخدم الشخصي يعدّل كل شيء.
 
-بعد دقيقة يصبح الرابط:
+## إصدار تحديث جديد
 
-**https://natheer13p.github.io/timetable/**
-
-وهذا هو الرابط الذي يفتحه أصحاب الآيفون ويضيفونه للشاشة الرئيسية.
-
-## 3) التحديث التلقائي (يعمل تلقائياً بعد الرفع)
-
-التطبيق يقرأ هذه الملفات من رابط ثابت مدمج في الكود:
-
-```
-https://raw.githubusercontent.com/Natheer13p/timetable/main/version.json
-https://raw.githubusercontent.com/Natheer13p/timetable/main/school-version.json
-https://raw.githubusercontent.com/Natheer13p/timetable/main/school.xml
-```
-
-### عند إصدار نسخة جديدة من التطبيق
-1. ارفع `versionCode` في `app/build.gradle` (مثلاً 5).
-2. ابنِ نسخة release.
+1. غيّر `versionCode` في `app/build.gradle` (مثلاً 5) و`versionName`.
+2. ابنِ نسخة release (تحتاج `keystore/release.jks` محلياً — غير مرفوع للمستودع).
 3. استبدل `apk/Timetable.apk` بالملف الجديد.
 4. عدّل `version.json`:
    ```json
    { "versionCode": 5, "versionName": "3.2", "url": "https://github.com/Natheer13p/timetable/raw/main/apk/Timetable.apk", "notes": "..." }
    ```
-5. Commit → كل مستخدم يفتح التطبيق يظهر له: **«يتوفر تحديث — اضغط للتحديث»**.
+5. Commit → يظهر لكل مستخدم: **«يتوفر تحديث — اضغط للتحديث»** وينزّل ويثبّت فوق القديم مع بقاء بياناته.
 
-### عند تغيّر جدول المدرسة
+## تحديث بيانات المدرسة فقط (بدون نسخة جديدة)
+
 1. استبدل `school.xml` بملف aSc الجديد.
-2. ارفع رقم `version` في `school-version.json` (1 → 2 …).
-3. Commit → البيانات تتحدث تلقائياً عند فتح التطبيق، **ويبقى اسم كل مدرّس مثبتاً** (المطابقة بالاسم).
+2. ارفع الرقم في `school-version.json` (1 → 2 …).
+3. Commit → البيانات تتحدث عند فتح التطبيق، **وتبقى أسماء المدرسين مثبّتة** (المطابقة بالاسم).
 
-## 4) إشعارات الآيفون (OneSignal)
+## نسخة iPhone (PWA)
 
-1. أنشئ تطبيقاً مجانياً في https://onesignal.com (نوع: Web).
-2. انسخ **App ID** والصقه في `index.html`:
-   ```js
-   var ONESIGNAL_APP_ID = "ضع-المعرّف-هنا";
-   ```
-3. أضف نطاق الموقع في إعدادات OneSignal: `natheer13p.github.io`.
-4. على الآيفون (iOS 16.4+): افتح الرابط بـ **Safari** → مشاركة → **إضافة إلى الشاشة الرئيسية** → افتح التطبيق → اسمح بالإشعارات.
+- افتح https://natheer13p.github.io/timetable/ بـ **Safari**.
+- مشاركة → **إضافة إلى الشاشة الرئيسية**.
+- للإشعارات والتطبيق مسكّر: أنشئ تطبيق Web في OneSignal وضع `App ID` في `index.html` عند `ONESIGNAL_APP_ID`، ثم أضف النطاق `natheer13p.github.io`.
+- ملاحظة: iOS يمنع النطق التلقائي والتطبيق مسكّر (قيد من آبل)، النطق يعمل والتطبيق مفتوح.
 
-⚠️ حدود آبل: الإشعار يصل والتطبيق مسكّر، لكن **النطق الصوتي لا يعمل** والتطبيق مسكّر (قيد من iOS). النطق يعمل والتطبيق مفتوح.
+## الأمان
 
-## 5) مفتاح التوقيع (مهم جداً)
-
-- الملف: `keystore/release.jks`
-- الكلمة: `ObaidiTimetable2026Key`
+- مفتاح التوقيع `keystore/release.jks` **لا يُرفع** إلى المستودع (موجود محلياً فقط).
 - البصمة SHA-256: `25:A8:BD:18:1C:E6:02:45:33:2B:46:07:8A:22:0F:64:E0:75:EC:CE:77:11:1A:1E:1E:D8:04:35:1D:78:BE:05`
-
-**لا تُنشئ مفتاحاً جديداً ولا تفقد هذا الملف** — أي تغيير يعني أن التحديثات لن تُثبَّت فوق القديم.
-
-> أول انتقال من نسخة debug (v3) إلى هذه النسخة الموقّعة يحتاج **حذف التطبيق القديم مرة واحدة** ثم تثبيت الجديد.
-
-## 6) ملاحظة عن المستودع الحالي
-
-الملفات الموجودة حالياً في المستودع (`app/` و `index.html` القديم 9KB) هي **نسخة قديمة**. لتحديث الكود المصدري لاحقاً استبدل مجلد `app/` بمجلد المشروع الجديد (بدون مجلد `keystore`).
+- أي تغيير في المفتاح = التحديثات لن تُثبَّت فوق القديم.
