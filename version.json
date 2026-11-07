@@ -1,6 +1,6 @@
 {
-  "versionCode": 4,
-  "versionName": "3.1",
+  "versionCode": 5,
+  "versionName": "3.2",
   "url": "https://github.com/Natheer13p/timetable/raw/main/apk/Timetable.apk",
-  "notes": "نظام الأدوار + تحديث تلقائي + بيانات المدرسة من GitHub"
+  "notes": "تمت إزالة الساعة الامتحانية • جدول المدرس أصبح خاصاً به فقط مع خيار عرض جدول المدرسة الكامل — يرجى تحديث التطبيق الآن"
 }

@@ -1,5 +1,5 @@
 /* خدمة العمل دون اتصال — جدول الحصص */
-const CACHE = "tt-v1";
+const CACHE = "tt-v2";
 const SHELL = [
   "./",
   "./index.html",
