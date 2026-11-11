@@ -212,7 +212,7 @@ class Bridge(private val a: Activity, private val w: WebView) {
                 setDescription("جاري تنزيل الإصدار الجديد...")
                 setMimeType("application/vnd.android.package-archive")
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                setDestinationInExternalFilesDir(a, null, "update.apk")
+                setDestinationInExternalFilesDir(a, null, "update-" + System.currentTimeMillis() + ".apk")
             }
             dm.enqueue(req)
             toastJs("جاري التنزيل... سيبدأ التثبيت تلقائياً")
@@ -236,6 +236,15 @@ class Bridge(private val a: Activity, private val w: WebView) {
                 Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${a.packageName}"))
             )
         } catch (_: Exception) {}
+    }
+
+    @JavascriptInterface
+    fun canInstall(): Boolean {
+        return try {
+            Build.VERSION.SDK_INT < 26 || a.packageManager.canRequestPackageInstalls()
+        } catch (e: Exception) {
+            false
+        }
     }
 
     @JavascriptInterface

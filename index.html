@@ -370,6 +370,18 @@ select:focus,input:focus{border-color:var(--ac)}
   </div>
 </div>
 
+<!-- نافذة تم التحديث -->
+<div id="sheet-updated" class="sheet">
+  <div class="sheet-box">
+    <h3>✅ تم تحديث التطبيق</h3>
+    <p class="hint" id="upd-done-ver">—</p>
+    <p class="hint">كل شيء محدّث وجاهز للعمل — لا حاجة لحذف النسخة القديمة.</p>
+    <div class="actions">
+      <button class="btn primary" onclick="closeSheet('sheet-updated')">حسناً، ابدأ</button>
+    </div>
+  </div>
+</div>
+
 <script>
 var DAYS = ["الأحد","الإثنين","الثلاثاء","الأربعاء","الخميس"];
 var ORD = ["الأول","الثاني","الثالث","الرابع","الخامس","السادس"];
@@ -1142,6 +1154,10 @@ var _updPending = null;
 var _pendingSchoolVer = 0;
 var _afterSchool = null;
 var _schoolSilent = false;
+var _updPrompted = 0;
+var _updManualCheck = false;
+var _updAutoTried = 0;
+var _updAutoPending = false;
 
 function baseUrl(){
   var b = String(UPDATE_BASE || "").trim().replace(/\/+$/,"");
@@ -1162,14 +1178,14 @@ function updateSettingsInfo(){
 }
 
 var _updPrompted = 0;
-function showUpdateBanner(info){
+function showUpdateBanner(info, auto){
   var b = document.getElementById("upd-banner");
   if(!b || !info) return;
   _updPending = info;
   b.textContent = "⬆️ يتوفر تحديث v" + (info.versionName || info.versionCode) + " — اضغط للتحديث";
   b.classList.add("show");
   var code = info.versionCode | 0;
-  if(_updPrompted !== code){
+  if(!auto && _updPrompted !== code){
     _updPrompted = code;
     var vEl = document.getElementById("upd-modal-ver");
     var nEl = document.getElementById("upd-modal-notes");
@@ -1196,7 +1212,45 @@ function openUpdate(){
   toast("جاري التنزيل... سيبدأ التثبيت تلقائياً");
 }
 
+/* تحديث تلقائي بدون فتح الإعدادات */
+function autoApplyUpdate(j){
+  if(!window.Native || !j || !j.url) return;
+  var code = j.versionCode | 0;
+  if(_updAutoTried === code) return;
+  _updAutoTried = code;
+  _updPending = j;
+  var can = true;
+  try{ if(Native.canInstall) can = Native.canInstall(); }catch(e){ can = true; }
+  if(!can){
+    _updAutoPending = true;
+    toast("اسمح بتثبيت التطبيقات — سيبدأ التحديث تلقائياً");
+    Native.downloadApk(j.url);
+    return;
+  }
+  _updAutoPending = false;
+  closeSheet("sheet-update");
+  var b = document.getElementById("upd-banner");
+  if(b){
+    b.textContent = "⬆️ جاري تحديث التطبيق إلى v" + (j.versionName || code) + "...";
+    b.classList.add("show");
+  }
+  toast("جاري تحديث التطبيق تلقائياً...");
+  Native.downloadApk(j.url);
+}
+window.addEventListener("focus", function(){
+  if(_updAutoPending && _updPending && window.Native){
+    try{
+      if(!Native.canInstall || Native.canInstall()){
+        _updAutoPending = false;
+        _updAutoTried = 0;
+        autoApplyUpdate(_updPending);
+      }
+    }catch(e){}
+  }
+});
+
 function checkUpdates(manual){
+  _updManualCheck = !!manual;
   if(!window.Native){
     if(manual) toast("تحديث التطبيق متاح على أندرويد — نسخة الويب تتحدث تلقائياً");
     return;
@@ -1213,11 +1267,14 @@ window.onVersionJson = function(ok, body){
     if((j.versionCode|0) > appVer()){
       meta.upd = j;
       save(K_META, meta);
-      showUpdateBanner(j);
+      var auto = !_updManualCheck;
+      showUpdateBanner(j, auto);
       var ui = document.getElementById("upd-info");
       if(ui) ui.textContent = "يتوفر إصدار أحدث: v" + (j.versionName || j.versionCode) + (j.notes ? " — " + j.notes : "");
+      if(auto) setTimeout(function(){ autoApplyUpdate(j); }, 700);
     } else {
       hideUpdateBanner();
+      if(meta.upd){ delete meta.upd; save(K_META, meta); }
       var ui2 = document.getElementById("upd-info");
       if(ui2) ui2.textContent = "أنت على أحدث إصدار ✓ (" + appVerName() + ")";
     }
@@ -1666,11 +1723,28 @@ pushSpeech();
 
 if(!meta.onboarded){ showOnboard(); }
 
-/* إظهار تحديث محفوظ + فحص تلقائي هادئ */
-if(meta.upd && (meta.upd.versionCode|0) > appVer()) showUpdateBanner(meta.upd);
-if(meta.onboarded && baseUrl()){
-  setTimeout(function(){ checkUpdates(false); }, 2500);
-  if(roleName() !== "general"){
+/* إظهار رسالة "تم تحديث التطبيق" بعد التحديث مباشرة */
+var _curVer = appVer();
+if(_curVer){
+  if(meta.lastVer && (meta.lastVer|0) < _curVer){
+    setTimeout(function(){
+      var d = document.getElementById("upd-done-ver");
+      if(d) d.textContent = "الإصدار الحالي: " + appVerName();
+      openSheet("sheet-updated");
+    }, 700);
+  }
+  meta.lastVer = _curVer;
+  save(K_META, meta);
+}
+
+/* فحص وتحديث تلقائي فور فتح التطبيق — بدون الحاجة للإعدادات */
+if(meta.upd && (meta.upd.versionCode|0) > _curVer){
+  showUpdateBanner(meta.upd, true);
+  setTimeout(function(){ autoApplyUpdate(meta.upd); }, 800);
+}
+if(baseUrl() && window.Native){
+  setTimeout(function(){ checkUpdates(false); }, 900);
+  if(meta.onboarded && roleName() !== "general"){
     setTimeout(function(){ checkDataUpdates(false); }, 6000);
   }
 }
