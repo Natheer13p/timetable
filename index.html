@@ -1726,7 +1726,8 @@ if(!meta.onboarded){ showOnboard(); }
 /* إظهار رسالة "تم تحديث التطبيق" بعد التحديث مباشرة */
 var _curVer = appVer();
 if(_curVer){
-  if(meta.lastVer && (meta.lastVer|0) < _curVer){
+  var _wasOld = meta.lastVer ? ((meta.lastVer|0) < _curVer) : (meta.onboarded === true);
+  if(_wasOld){
     setTimeout(function(){
       var d = document.getElementById("upd-done-ver");
       if(d) d.textContent = "الإصدار الحالي: " + appVerName();

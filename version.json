@@ -1,6 +1,6 @@
 {
-  "versionCode": 6,
-  "versionName": "3.3",
+  "versionCode": 7,
+  "versionName": "3.4",
   "url": "https://github.com/Natheer13p/timetable/raw/main/apk/Timetable.apk",
-  "notes": "التحديث يتم تلقائياً فور فتح التطبيق — لا حاجة للذهاب إلى الإعدادات — ولا حاجة لحذف النسخة القديمة"
+  "notes": "التحديث تلقائي فور فتح التطبيق + رسالة «تم تحديث التطبيق» — لا حاجة للإعدادات ولا لحذف النسخة القديمة"
 }
